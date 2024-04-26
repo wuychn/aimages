@@ -4,11 +4,8 @@ import io
 import os
 from pathlib import Path
 from typing import Union
-from modal import Image, Stub, method
 
-stub = Stub("controlnet")
-
-TRANSFORMERS_CACHE = "/cache"
+TRANSFORMERS_CACHE = "/data/gpt/aimages/cache"
 
 
 def set_scheduler(model, scheduler: str):
@@ -93,25 +90,6 @@ def download_sd():
         sd_pipe.save_pretrained(TRANSFORMERS_CACHE, safe_serialization=True)
 
 
-image = (
-    Image.debian_slim(python_version="3.10")
-    .pip_install(
-        "accelerate",
-        "diffusers[torch]>=0.15.1",
-        "ftfy",
-        "torchvision",
-        "transformers",
-        "triton",
-        "safetensors",
-        "opencv-python-headless",
-        "torch>=2.0.1",
-    )
-    .run_function(download_controlnet)
-    .run_function(download_sd)
-)
-stub.image = image
-
-
 def load_stable_diffusion(model_id: str, controlnet=None, **kwargs):
     import torch
     from diffusers import StableDiffusionControlNetPipeline, StableDiffusionPipeline
@@ -161,7 +139,6 @@ def load_controlnet(model_id: str, **kwargs):
     return controlnet
 
 
-@stub.cls(gpu="a10g")
 class StableDiffusion:
     def setup_models(
         self,
@@ -192,7 +169,6 @@ class StableDiffusion:
 
         return self.pipe
 
-    @method()
     def run_inference(
         self,
         prompt: str,
@@ -268,7 +244,6 @@ class StableDiffusion:
         return results
 
 
-@stub.local_entrypoint()
 def entrypoint(
     prompt: str,
     control_image_path: str,
@@ -314,7 +289,7 @@ def entrypoint(
     )
 
     sd = StableDiffusion()
-    images = sd.run_inference.remote(
+    images = sd.run_inference(
         prompt=prompt,
         negative_prompt=negative_prompt,
         batch_size=n,
@@ -339,3 +314,13 @@ def entrypoint(
             os.system(f"open {image_output_path}")
         except Exception:
             pass
+
+if __name__ == '__main__':
+    entrypoint(prompt="Please generate images with hidden text, the background image should be a bustling urban night scene, and text should be 'ColaGPT'",
+               control_image_path="/data/gpt/aimages/img/control_image.png",
+               controlnet_conditioning_scale=1.45,
+               n=1,
+               #sd_model='runwayml/stable-diffusion-v1-5'
+               #sd_model='SG161222/Realistic_Vision_V5.1_noVAE'
+               #sd_model='Lykon/DreamShaper'
+               )

@@ -1,0 +1,3 @@
+修改sd_controlnet脚本，支持在本地运行，而不依赖Modal
+
+python3 sd_controlnet.py
